@@ -1,0 +1,30 @@
+<!doctype html>
+<html
+  lang="<%= htmlWebpackPlugin.options.templateParameters.lang %>"
+  dir="<%= htmlWebpackPlugin.options.templateParameters.dir %>"
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Standalone dev shell only. In production this MFE is mounted by
+      lynkflow-shell, which owns the real <html> element, including the
+      lang/dir attributes (see the workspace root's .claude/rules/i18n.md) --
+      set at RUNTIME there, via a synchronous inline script reading a
+      profile-backed cookie, because the Shell has to react to a logged-in
+      user's stored language preference and can't know it at build time.
+
+      This standalone harness has no such requirement -- it's a fixed dev
+      tool, not a multi-user app -- so `lang`/`dir` are baked directly into
+      this file at BUILD time instead, from `.env`'s DEV_LANGUAGE (see
+      webpack.config.mjs's `templateParameters` and README.md §6). No inline
+      script, no localStorage, nothing to run before paint: the value is
+      already in the HTML by the time the browser parses it. To view this MFE
+      in Arabic/RTL, set DEV_LANGUAGE=ar in .env and restart `npm run dev`.
+    -->
+    <title>example MFE (standalone dev)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

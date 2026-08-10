@@ -1,0 +1,4 @@
+# This file only keeps this folder in git until you add a real hook.
+# TanStack Query hooks that wrap your api/{domain}Client.ts calls go here,
+# e.g. features/example/hooks/useExampleItems.ts -- see README.md §4 for the
+# full pattern (query keys, useQuery, how this composes with QueryBoundary).

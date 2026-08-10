@@ -1,0 +1,5 @@
+# This file only keeps this folder in git until you add a real component.
+# Feature-specific components (that know about your domain's data) go here,
+# e.g. features/example/components/ExampleCard/ExampleCard.tsx + a colocated
+# test + index.ts -- see README.md §3-4 and .claude/rules/naming-conventions.md
+# (at the workspace root) for the exact PascalCase-folder convention.

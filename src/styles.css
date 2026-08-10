@@ -1,0 +1,18 @@
+/*
+ * Utilities only -- deliberately NOT `@import "tailwindcss"`.
+ *
+ * The all-in-one import would also emit Tailwind's preflight (the global CSS
+ * reset + base typography). @lynkflow/ui-kit's stylesheet already ships
+ * preflight, and the Shell imports that exactly once for the whole app
+ * (.claude/rules/ui-kit.md). If every MFE emitted preflight too, the page would
+ * carry one reset per loaded MFE, with cascade order deciding which one wins.
+ *
+ * So: the Shell owns the global baseline via the ui-kit stylesheet; each MFE
+ * contributes only the utility classes its own components actually use.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@config "../tailwind.config.ts";
