@@ -1,0 +1,13 @@
+# Force LF everywhere, regardless of each developer's local core.autocrlf.
+# Matches @lynkflow/config/prettier's endOfLine: "lf" -- without this, Windows
+# checks files out as CRLF, Prettier reformats them back to LF, and every
+# `git status` after a `prettier --write` shows noise that isn't a real change.
+* text=auto eol=lf
+
+# Binary files: never touch line endings in these regardless of the rule above.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
