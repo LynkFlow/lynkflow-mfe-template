@@ -55,8 +55,8 @@ fresh clone with no `.env` yet still builds. Adding a new value that needs to
 be configured per-environment (a feature flag, a second backend URL, ...)
 follows the same pattern: add it to `.env.example` with a comment, read it in
 `webpack.config.mjs`, and if the browser bundle needs it at runtime, expose it
-through `webpack.DefinePlugin` + a declaration in `src/types/globals.d.ts`
-(see §5's note on that file).
+through `webpack.DefinePlugin` + a file-scoped `declare const` in `src/env.ts`
+(see §5 for why this is no longer `src/types/globals.d.ts`).
 
 ## 3. Where things go
 
@@ -100,8 +100,10 @@ src/
 ├── i18n/                       en.json / ar.json (start EMPTY) + this MFE's
 │                                i18next instance + a getDirection() helper
 ├── test/                       renderWithProviders helper, jest globals
-└── types/                      ambient global declarations only — see §5,
-                                 NOT where your domain's types go
+└── types/                      app-wide types shared across SEVERAL features
+                                 — see §5. NOT ambient declarations (there
+                                 aren't any anymore), NOT domain types, NOT
+                                 build-time constants
 ```
 
 **Decision guide for a new file:**
@@ -115,6 +117,7 @@ src/
 | A backend call                                           | `api/{domain}Client.ts` (built on `api/httpClient.ts`) + a hook |
 | Rendering a query's loading/error/empty/success states   | `<QueryBoundary query={...}>` — never hand-rolled per page      |
 | Your domain's data shapes (`User`, `Order`, ...)         | `features/{domain}/{domain}.types.ts` — **not** `src/types/`    |
+| A type shared across SEVERAL features, owned by none     | `src/types/` — see §5                                           |
 | User-facing text                                         | `i18n/en.json` **and** `i18n/ar.json` — never inline            |
 | A color / spacing / radius value                         | a token in `@lynkflow/ui-kit` — never hardcoded                 |
 
@@ -138,6 +141,20 @@ of them are hardcoded to one behavior -- each has an override point.
 `ErrorFallback` are the two _visual_ components they render by default and
 that either boundary can be told to render something else instead. Detail on
 each below.
+
+**The default loading/error visuals are generic on purpose, not final.**
+`PageLoadingSkeleton` is a plain shimmer block and `ErrorFallback` is a plain
+message + retry button — they exist so a brand-new page isn't left with a
+blank screen while loading or a raw stack trace on failure, not because every
+page should look like that forever. Once a real page's layout exists, its
+loading state usually reads much better as a skeleton shaped like _that page_
+(matching card/list/table layout, not a generic block), and a domain-specific
+error screen (illustration, tone, a more specific recovery action than
+"retry") often fits the product better than the shared default. Both
+`RouteBoundary` and `QueryBoundary` already support this per call site —
+`loadingFallback`/`fallback` — so building a custom skeleton or a custom error
+component for a specific feature is expected, normal usage, not a deviation
+from the pattern. The shared defaults are the floor, not the ceiling.
 
 **API calls** — `api/httpClient.ts` exports `createApiClient(baseUrl)`, a
 domain-agnostic fetch wrapper: typed `get`/`post`/`put`/`patch`/`delete`,
@@ -236,27 +253,45 @@ something else.
 
 **i18n** — see §6.
 
-## 5. `src/types/` is NOT for domain types
+## 5. `src/types/` — application-local shared types (not declarations, not domain types)
 
-`assets.d.ts` and `globals.d.ts` are **ambient global declaration files** --
-they teach TypeScript about things that exist at build/runtime but aren't
-real importable modules: non-JS asset imports (`*.css` today) and build-time
-constants webpack's `DefinePlugin` injects (`__API_BASE_URL__`). Nothing in
-this folder is ever imported by name; the declarations just apply globally
-once TypeScript sees the file.
+This folder used to hold `assets.d.ts` and `globals.d.ts`, two **ambient
+global declaration files**. Both are gone now — removed once their reason for
+existing went away:
 
-**Your domain's actual data types (`User`, `Order`, `Property`, ...) do NOT
-go here.** They go in `features/{domain}/{domain}.types.ts`, colocated with
-the feature that owns them (`naming-conventions.md`). When you specialize
-this template for a real domain:
+- `globals.d.ts` declared the webpack-injected build constants
+  (`__API_BASE_URL__`, ...) as globals. Superseded by `src/env.ts`, which
+  declares the same constants **file-scoped** instead (`declare const` inside
+  a module, not leaked globally) — see §2. Every value that used to live in
+  `globals.d.ts` now lives there.
+- `assets.d.ts` held one line, `declare module "*.css"`, so `import
+"./styles.css"` would typecheck. It was dropped in favor of setting
+  `noUncheckedSideEffectImports: false` in `tsconfig.json`: the wildcard
+  declaration never actually caught a typo'd path either way (`import
+"./styels.css"` typechecked fine with or without it) — it bought a file, not
+  safety. A missing or misspelled asset still fails loudly where it actually
+  can be caught: webpack fails the build, Jest fails the test.
 
-- Leave `assets.d.ts` alone unless you start importing a new non-JS asset
-  type (add a `declare module "*.svg"` line, etc., right next to the CSS one).
-- Leave `globals.d.ts` alone unless you add a new build-time constant to
-  `webpack.config.mjs`'s `DefinePlugin` (declare it here too, same pattern as
-  `__API_BASE_URL__`).
-- Don't delete this folder when specializing for a domain -- it's
-  infrastructure every MFE needs, not example content like `ExamplePage.tsx`.
+**So `src/types/` is no longer an ambient-declarations folder at all.** Its
+purpose now: application-local types that are genuinely shared across
+**several** features but aren't owned by any single one — e.g. a `Paginated<T>`
+wrapper three different feature lists reuse, or an app-wide `Theme` union.
+It ships empty; add files as the app actually grows into needing them, not
+speculatively.
+
+**What still does NOT go here:**
+
+| Type                                                    | Goes instead in                                                                     |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Build-time constants (`__API_BASE_URL__`, ...)          | `src/env.ts` — file-scoped, not global                                              |
+| Your domain's data shapes (`User`, `Order`, `Property`) | `features/{domain}/{domain}.types.ts`                                               |
+| A component's own prop types                            | The component's own file, next to it                                                |
+| Types that cross a service boundary (API DTOs)          | `@lynkflow/types` — and only if they're genuinely a contract, see `architecture.md` |
+
+Don't delete this folder when specializing the template for a real domain —
+it's infrastructure every MFE eventually needs, not scaffolding like
+`ExamplePage.tsx`. See `src/types/README.md` for the same guidance colocated
+with the folder itself.
 
 ## 6. Localization and RTL
 
@@ -277,22 +312,35 @@ this template for a real domain:
   `/en/...` vs `/ar/...` prefix anywhere in this app's routes, on purpose (the
   workspace root's `i18n.md` has the full reasoning). Don't add a locale
   segment to `Routes.tsx` if you're building the Shell's route map later.
-- Because `lynkflow-shell` doesn't exist yet, there's nothing to set
-  `<html dir>` while you're developing this MFE standalone. `bootstrap.tsx`'s
-  `DevHarness` fills that gap **for local dev only**: a small EN/AR switcher
-  that sets `document.documentElement.dir` via `getDirection()`, so you can
-  see RTL layout before the Shell exists. Delete it once you're testing
-  through a real Shell.
-- **How direction gets set correctly on the very first paint** (before this
-  gap even matters): `public/index.html` has a small inline `<script>` that
-  runs synchronously, before React loads, and sets `<html lang>`/`dir` from
-  the last-remembered choice (`localStorage` here; a cookie for the real
-  Shell) -- otherwise there'd be a visible flash of the wrong direction while
-  the JS bundle is still loading. `bootstrap.tsx`'s `getInitialLanguage()`
-  then reads that already-applied value back instead of re-detecting it. Read
-  both files together as a working reference; the workspace root's `i18n.md`
-  ("Avoiding a flash of the wrong direction on first paint") has the full
-  reasoning for what `lynkflow-shell` needs to do with this pattern for real.
+- **Because `lynkflow-shell` doesn't exist yet, there's no runtime language
+  switcher in this template at all** — standalone dev fakes the Shell's
+  `language` prop with a single **build-time** value instead. `.env`'s
+  `DEV_LANGUAGE` (default `en`) is read by `webpack.config.mjs` and used in
+  two places: baked directly into `public/index.html`'s `<html lang>`/`dir`
+  via `HtmlWebpackPlugin`'s `templateParameters` (so the static HTML is
+  already correct before any JS runs), and passed into `<App
+language={env.devLanguage} />` in `bootstrap.tsx` via the
+  `__DEV_LANGUAGE__` constant declared in `src/env.ts`. **To preview Arabic/RTL
+  locally: set `DEV_LANGUAGE=ar` in `.env` and restart `npm run dev`** — this
+  is a full rebuild, not a live in-browser toggle, and that's deliberate: a
+  fixed, restart-to-change value is simpler than runtime switcher UI for
+  something only ever used while developing this one MFE in isolation. See
+  `bootstrap.tsx`'s own docblock and `webpack.config.mjs`'s `DEV_LANGUAGE`
+  section for the full mechanism.
+- **This is a standalone-dev-only stand-in, not a preview of how it'll really
+  work.** In production there's no `.env`, no build-time bake, and no
+  restart: the Shell sets `<html lang>`/`dir` at **runtime**, from the
+  logged-in user's stored profile preference (or a pre-login guess via
+  `navigator.language` / a remembered cookie), via a synchronous inline
+  `<script>` in the Shell's own `index.html` `<head>` — before any stylesheet
+  or bundle loads, so there's no visible flash of the wrong direction while
+  the JS is still downloading. That mechanism lives in `lynkflow-shell`, which
+  doesn't exist yet; the workspace root's `i18n.md` ("Avoiding a flash of the
+  wrong direction on first paint" and "Locale source of truth") has the full
+  design. This MFE's own role once mounted under a real Shell stays exactly
+  what §"active language is a prop" above says: receive `language`, call
+  `setLanguage()`, never touch `<html>` itself — `bootstrap.tsx` and `env.ts`
+  stop being relevant entirely, since the Shell imports `./App` directly.
 
 ## 7. Styling
 
@@ -325,6 +373,10 @@ npm test             # jest
 npm run test:watch
 npm run test:coverage
 npm run format
+npm run update:lynkflow  # deliberate, reviewable bump of @lynkflow/config
+                          # and @lynkflow/ui-kit to their latest published
+                          # version -- see §9 for why this isn't the same
+                          # as pinning "latest" in package.json
 ```
 
 A Husky pre-commit hook runs Prettier, related tests, and a full type-check.
@@ -334,33 +386,44 @@ A Husky pre-commit hook runs Prettier, related tests, and a full type-check.
 
 Don't "fix" any of these without reading the reasoning first.
 
-- **`@lynkflow/ui-kit` is pinned to the `latest` dist-tag**, not a semver
-  range. ui-kit is pre-1.0, so npm's caret (`^0.1.x`) only allows patch bumps
-  -- it would silently block new components shipping in a `0.2.0`. `latest`
-  means every freshly scaffolded MFE picks up whatever's newest at that
-  moment; it's non-reproducible if you re-run `npm install` much later, but
-  `package-lock.json` pins the resolved version for this repo's day-to-day
-  installs regardless, so that's an acceptable trade-off for a template you
-  copy once. If reproducibility across time matters more than picking up new
-  components automatically for a specific generated MFE, switch it to a
-  normal semver range after copying the template.
+- **`@lynkflow/ui-kit` and `@lynkflow/config` use normal caret ranges**
+  (`^0.1.0`, `^0.0.1`), not the `latest` dist-tag. Both packages are pre-1.0,
+  so the caret is already tight — `^0.1.0` only allows `>=0.1.0 <0.2.0`,
+  `^0.0.1` only allows exactly `0.0.1` — npm's own semver rules treat a
+  pre-1.0 package as unstable by default, which is the right default here:
+  an MFE shouldn't silently pick up a breaking `0.2.0` just from running
+  `npm install`. When you deliberately want the newest published version,
+  run `npm run update:lynkflow` — it runs `npm install
+@lynkflow/config@latest @lynkflow/ui-kit@latest`, which resolves the
+  `latest` tag **once, right now**, and writes the concrete resulting version
+  into `package.json`/`package-lock.json` as a normal, reviewable diff. That's
+  a deliberate, on-demand bump — not the same thing as writing the literal
+  string `"latest"` into `package.json`, which would silently float on every
+  future install instead.
 - **No `.js` extensions on relative imports.** The ui-kit is a published library
   using `moduleResolution: nodenext`, which requires them. This is a bundled app
   using `moduleResolution: bundler`, which doesn't.
-- **`webpack.config.mjs`, not `.ts`.** A TS webpack config needs `ts-node`, which
-  drives the TypeScript compiler API programmatically and breaks on TypeScript 7
-  (same root cause as `ts-jest` / `tsup --dts` / `typescript-eslint`, documented
-  in the workspace root's `tooling.md`). Keeping the config in JS lets this
-  repo stay on TS 7. `src/` is still fully type-checked by `npm run typecheck`.
-- **`overrides.react-i18next.typescript`** in `package.json`: react-i18next
-  declares an optional peer of `typescript@^5 || ^6` and would otherwise refuse
-  to install alongside TS 7. It's a types-only peer, so pinning it to the root
-  TypeScript is safe.
+- **`webpack.config.mjs`, not `.ts`.** This repo is on TypeScript 6.x, where a
+  `webpack.config.ts` actually works (verified) — so this is a deliberate
+  choice, not a forced workaround: a `.ts` config buys type-checking of this
+  one file at the cost of a `ts-node` dependency and a transpile step on every
+  webpack invocation, which isn't worth it when `npm run typecheck` (`tsc
+--noEmit`) already covers `src/` in full. (Earlier, on TypeScript 7, this
+  really was forced — `ts-node` drives the TS compiler API programmatically,
+  which breaks on TS 7's missing stable API. The platform rolled back to TS 6
+  on 10 Aug 2026; see the workspace root's `tooling.md`.)
 
 ## 10. Temporary: `ErrorFallback` and `PageLoadingSkeleton`
 
 These two live in `src/components/` but **belong in `@lynkflow/ui-kit`** so
-every MFE renders the same loading and failure states. They're local only
-because ui-kit doesn't ship them yet. When it does: delete both folders and
-import from the package instead. `RouteBoundary` and `QueryBoundary` (§4)
-will each need a one-line import update at that point, nothing else.
+every MFE has the same _default_ loading and failure states available. They're
+local only because ui-kit doesn't ship them yet. When it does: delete both
+folders and import from the package instead. `RouteBoundary` and
+`QueryBoundary` (§4) will each need a one-line import update at that point,
+nothing else.
+
+This move doesn't change how customizable they are — it only changes where the
+_default_ comes from. As covered in §4, a page or feature is always free to
+pass its own loading skeleton or error component via
+`loadingFallback`/`fallback` when the shared default doesn't fit — that stays
+true whether the default is this local component or the future ui-kit one.
