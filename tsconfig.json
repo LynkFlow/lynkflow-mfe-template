@@ -1,29 +1,23 @@
 {
+  "extends": "@lynkflow/config/tsconfig/react-app.json",
   "compilerOptions": {
-    "target": "esnext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "verbatimModuleSyntax": true,
+    /* react-app.json already sets: module "preserve", moduleResolution
+       "bundler", lib [DOM, DOM.Iterable, ESNext], jsx "react-jsx", noEmit,
+       resolveJsonModule, allowSyntheticDefaultImports -- plus base.json's
+       target/strict/noUncheckedIndexedAccess/exactOptionalPropertyTypes/
+       verbatimModuleSyntax/isolatedModules/moduleDetection/sourceMap/
+       skipLibCheck. Everything below is specific to THIS repo. */
 
     /* Off deliberately. With it on, `import "./styles.css"` needs an ambient
        `declare module "*.css"` to typecheck -- but that declaration is a
        WILDCARD, so it matches any path and never catches a typo either
        (`import "./styels.css"` passes both ways). It bought a file, not
        safety. Missing or misspelled assets still fail loudly at the layer
-       that can actually tell: webpack fails the build, Jest fails the test. */
+       that can actually tell: webpack fails the build, Jest fails the test.
+       @lynkflow/config leaves this unset at every layer precisely because
+       it's a genuinely per-repo call -- the ui-kit keeps it on. */
     "noUncheckedSideEffectImports": false,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "sourceMap": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
+
     "types": ["jest"]
   },
   "include": ["src"]
