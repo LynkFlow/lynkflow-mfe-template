@@ -1,19 +1,24 @@
 # `src/types/`
 
-Two kinds of file belong here:
+Application-local types that are shared across several features but don't
+belong to any single one. Empty by default -- add files as the app grows.
 
-1. **Ambient declarations** that must be global to work -- currently
-   `assets.d.ts`, which tells TypeScript that `import "./styles.css"` is a
-   valid module. A `declare module "*.css"` can't be scoped to one file, so it
-   has to live in a `.d.ts` like this.
+Example of what fits: a `Paginated<T>` wrapper this MFE uses in three
+features, or an app-wide `Theme` union.
 
-2. **App-wide shared types** -- shapes used across several features that don't
-   belong to any single one.
+## What does NOT go here
 
-What does NOT belong here:
+| | Goes instead in |
+|---|---|
+| Build-time constants (`__API_BASE_URL__`) | `src/env.ts` -- declared file-scoped so nothing leaks globally |
+| Domain types (`User`, `Order`, `Property`) | `features/{domain}/{domain}.types.ts` |
+| Component prop types | the component's own file, next to the component |
+| Types that cross a service boundary (API DTOs) | `@lynkflow/types`, and only if they're genuinely a contract -- see `architecture.md` |
 
-- **Build-time constants.** Those live in `src/env.ts`, declared file-scoped so
-  they don't leak into the global namespace.
-- **Domain types.** A `User`, an `Order`, a `Property` belongs to its feature:
-  `features/{domain}/{domain}.types.ts` (see `naming-conventions.md`).
-- **Component prop types.** Those stay in the component's own file.
+## Why there's no `assets.d.ts`
+
+CSS imports (`import "./styles.css"` in `App.tsx`) would normally need an
+ambient `declare module "*.css"`. `tsconfig.json` sets
+`noUncheckedSideEffectImports: false` instead -- that declaration is a wildcard
+and never caught a mistyped path anyway, so it added a file without adding
+safety. Webpack and Jest both still fail loudly on a missing asset.

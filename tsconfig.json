@@ -9,6 +9,14 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
+
+    /* Off deliberately. With it on, `import "./styles.css"` needs an ambient
+       `declare module "*.css"` to typecheck -- but that declaration is a
+       WILDCARD, so it matches any path and never catches a typo either
+       (`import "./styels.css"` passes both ways). It bought a file, not
+       safety. Missing or misspelled assets still fail loudly at the layer
+       that can actually tell: webpack fails the build, Jest fails the test. */
+    "noUncheckedSideEffectImports": false,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
