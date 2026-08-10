@@ -16,6 +16,14 @@ import { I18nextProvider } from "react-i18next";
 import i18n, { setLanguage, type SupportedLanguage } from "./i18n/index";
 import Routes from "./Routes";
 
+// This MFE's OWN compiled Tailwind utilities. It must be imported here, in the
+// federated entry point -- not in bootstrap.tsx -- because bootstrap only runs
+// in standalone dev. In production the Shell imports `./App` directly, so
+// anything imported only by bootstrap never loads and the MFE renders
+// unstyled. (The ui-kit's global stylesheet is a separate concern: the Shell
+// imports that once for the whole app -- see .claude/rules/ui-kit.md.)
+import "./styles.css";
+
 export interface AppProps {
   /** Active language, owned by the Shell. */
   language?: SupportedLanguage;

@@ -18,7 +18,7 @@
  *   import { createApiClient } from "./httpClient";
  *   import type { User } from "../features/users/users.types";
  *
- *   const apiClient = createApiClient(__API_BASE_URL__);
+ *   const apiClient = createApiClient(env.apiBaseUrl);
  *
  *   export const usersClient = {
  *     list: () => apiClient.get<User[]>(""),

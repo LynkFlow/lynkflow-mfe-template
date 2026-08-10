@@ -29,13 +29,22 @@ module.exports = {
     // imports ./App directly), same category as build tooling. See the
     // file's own docblock.
     "!src/bootstrap.tsx",
+    // Build-time config passthrough: no branches, no logic, just reads the
+    // constants webpack injected. Same rationale as the ui-kit's tokens
+    // exclusion -- there's nothing to assert beyond "the value is the value",
+    // and it's exercised indirectly by everything that imports it.
+    "!src/env.ts",
   ],
+  // Raised from 70 once the suite settled at ~95%. A floor well under the
+  // current number still catches a real regression (someone deleting tests,
+  // or landing a substantial untested file) without failing the build the
+  // first time a modestly-tested file is added. See .claude/rules/testing.md.
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
+      branches: 80,
+      functions: 85,
+      lines: 85,
+      statements: 85,
     },
   },
 };

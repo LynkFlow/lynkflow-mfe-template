@@ -1,0 +1,28 @@
+version: 2
+
+# Dependency updates for this repo.
+#
+# IMPORTANT -- the `typescript` ignore below is not optional housekeeping.
+# The platform is deliberately pinned to TypeScript 6.0.x: typescript-eslint
+# supports `>=4.8.4 <6.1.0`, so a bump to 7.x silently DISABLES linting and
+# breaks `tsup --dts` / `ts-node`. A bot opening that PR would look routine and
+# quietly undo a considered platform decision. See the workspace-root
+# `.claude/rules/tooling.md` ("Why TypeScript 6, not 7") before removing this.
+#
+# Remove the ignore only when TypeScript 7.1 ships a stable programmatic
+# compiler API AND typescript-eslint widens its supported range -- and then
+# bump every LynkFlow repo together, not just this one.
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine patch/minor noise instead of a dozen.
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]

@@ -6,7 +6,7 @@
  * The Shell normally provides `language` as a runtime prop at mount
  * (.claude/rules/i18n.md), decided from the logged-in user's profile
  * preference. There's no Shell (and no user, and no profile) here, so this
- * harness renders in a FIXED language instead: `__DEV_LANGUAGE__`, a
+ * harness renders in a FIXED language instead: `env.devLanguage`, a
  * build-time constant baked in by webpack.config.mjs from `.env`'s
  * DEV_LANGUAGE. To see this MFE in Arabic/RTL, set DEV_LANGUAGE=ar in `.env`
  * and restart `npm run dev` -- there is no in-app switcher, on purpose: a
@@ -26,11 +26,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 // Standalone-only: in the real app the Shell imports the ui-kit stylesheet
-// once, globally. See .claude/rules/ui-kit.md.
+// once, globally. See .claude/rules/ui-kit.md. This MFE's OWN stylesheet is
+// imported by App.tsx instead, so it travels with the federated module.
 import "@lynkflow/ui-kit/styles.css";
-import "./styles.css";
 
 import App from "./App";
+import { env } from "./env";
 
 const container = document.getElementById("root");
 if (!container) throw new Error("Root container #root not found");
@@ -38,7 +39,7 @@ if (!container) throw new Error("Root container #root not found");
 createRoot(container).render(
   <StrictMode>
     <BrowserRouter>
-      <App language={__DEV_LANGUAGE__} />
+      <App language={env.devLanguage} />
     </BrowserRouter>
   </StrictMode>,
 );
