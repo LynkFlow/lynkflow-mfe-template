@@ -55,13 +55,14 @@ jobs:
           cache: "npm"
           cache-dependency-path: lynkflow-mfe-template/package-lock.json
 
-      - name: Configure npm (install-links for the config sibling, registry auth for ui-kit)
-        run: |
-          cp .npmrc.example .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.CROSS_REPO_PAT }}" >> .npmrc
-
+      # .npmrc is already committed (install-links=true, and a
+      # //npm.pkg.github.com/:_authToken=${LYNKFLOW_NPM_TOKEN} line for the
+      # real @lynkflow/ui-kit registry fetch below) -- just needs
+      # LYNKFLOW_NPM_TOKEN set for npm's ${VAR} expansion to resolve it.
       - name: Install
         run: npm install --install-links
+        env:
+          LYNKFLOW_NPM_TOKEN: ${{ secrets.CROSS_REPO_PAT }}
 
       - name: Lint
         run: npm run lint
