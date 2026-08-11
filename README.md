@@ -368,7 +368,17 @@ and merging any `className` prop instead of overwriting it.
 ```bash
 npm run dev          # standalone dev server (this MFE alone, no Shell)
 npm run build        # production build -> dist/remoteEntry.js
-npm run typecheck    # tsc --noEmit
+npm run typecheck    # tsc --noEmit, one-off
+npm run typecheck:watch  # tsc --noEmit --watch -- run in a SECOND terminal
+                          # alongside `npm run dev`; re-checks automatically on
+                          # every save instead of you re-running `typecheck` by
+                          # hand. Deliberately a separate process, not folded
+                          # into webpack -- babel-loader only strips types
+                          # syntactically (fast, no type info), so `npm run dev`
+                          # alone will build past a real type error. Your editor
+                          # already shows type errors live as you type; this is
+                          # for a terminal-visible check without touching the
+                          # webpack build's speed.
 npm test             # jest
 npm run test:watch
 npm run test:coverage

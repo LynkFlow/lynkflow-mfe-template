@@ -90,8 +90,30 @@ export default (_env, argv) => {
           use: "babel-loader",
         },
         {
+          // This MFE's OWN Tailwind source (utilities-only src/styles.css).
+          // Needs postcss-loader to expand Tailwind directives into real CSS.
           test: /\.css$/,
+          exclude: /node_modules/,
           use: ["style-loader", "css-loader", "postcss-loader"],
+        },
+        {
+          // Already-compiled CSS shipped by a dependency (e.g.
+          // @lynkflow/ui-kit/styles.css) -- must NOT go through
+          // postcss-loader. Running @tailwindcss/postcss on output that's
+          // already fully compiled, plain CSS (no @tailwind/@import
+          // "tailwindcss"/@config directives) isn't a harmless no-op: v4's
+          // postcss plugin treats every file it processes as a
+          // candidate-scanning source, so feeding it an ALREADY-COMPILED
+          // selector like `.bg-primary-500{...}` re-extracts "bg-primary-500"
+          // as a literal class-name candidate and pollutes its shared scan
+          // cache for the rest of THIS build -- which is how this app's own
+          // compiled stylesheet ended up with a random, incomplete subset of
+          // the ui-kit's classes (some leaked in by accident, most didn't).
+          // Plain css-loader + style-loader is correct and sufficient for
+          // CSS that's already fully compiled.
+          test: /\.css$/,
+          include: /node_modules/,
+          use: ["style-loader", "css-loader"],
         },
       ],
     },
@@ -135,9 +157,28 @@ export default (_env, argv) => {
     devServer: {
       port: PORT,
       historyApiFallback: true,
-      hot: true,
+      // Plain live-reload (full page refresh on every detected save),
+      // not HMR. HMR + Module Federation's container runtime + CSS modules
+      // (style-loader) have a known bad interaction -- a hot update that
+      // touches a CSS-importing module can throw
+      // "Cannot set properties of undefined" inside the MF container's own
+      // HMR handler, corrupting the dev session's module state until a full
+      // restart. A full-page reload on save is a smaller trade than
+      // periodic crashes: you still get automatic recompile + refresh on
+      // every save, just without preserving component state across it.
+      hot: false,
+      liveReload: true,
       // Required so the Shell (a different origin in dev) can load remoteEntry.js
       headers: { "Access-Control-Allow-Origin": "*" },
+    },
+    watchOptions: {
+      // Native OS file-change notifications don't reliably fire on some
+      // drives/setups (network drives, some external or cloud-synced
+      // folders) -- when that happens, webpack never notices a save at all,
+      // no matter what's changed. Polling checks for changes on an interval
+      // instead of waiting for an OS event, trading a small constant CPU
+      // cost for actually detecting saves reliably.
+      poll: 1000,
     },
     optimization: {
       // Module Federation requires a single runtime chunk per build.
