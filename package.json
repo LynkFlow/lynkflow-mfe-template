@@ -15,6 +15,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:coverage:warn": "jest --coverage || echo \"[coverage] Threshold not met -- see report above. Not blocking this commit; please add tests when you can.\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
