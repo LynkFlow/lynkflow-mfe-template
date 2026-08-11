@@ -1,0 +1,20 @@
+# --- Registry: LOCAL (Verdaccio) ---
+# Alternate .npmrc for testing against a local Verdaccio registry instead of
+# the real one. Copy this OVER .npmrc when you want it active:
+#   cp .npmrc.verdaccio.example .npmrc
+# and copy .npmrc.example back when you're done. Don't merge the two --
+# only one `@lynkflow:registry` mapping can be active at a time.
+#
+# Setup + full workflow: docs/packages-guide.md's "Local registry
+# (Verdaccio)" section.
+@lynkflow:registry=http://localhost:4873
+
+# Token as an environment variable, same reasoning as the remote config.
+# Set LYNKFLOW_VERDACCIO_TOKEN once after running `npm adduser --registry
+# http://localhost:4873` (any username/password -- it's local, nothing
+# checks it against anything real).
+//localhost:4873/:_authToken=${LYNKFLOW_VERDACCIO_TOKEN}
+
+# Same reasoning as the remote config's install-links -- still needed for
+# any @lynkflow/* package not yet published anywhere (including Verdaccio).
+install-links=true

@@ -1,9 +1,24 @@
+# --- Registry: REMOTE (default) ---
+# The real, published home for every @lynkflow/* package.
 @lynkflow:registry=https://npm.pkg.github.com
 
-# Needed while @lynkflow/config (and, in this repo, possibly other
-# @lynkflow/* packages) are consumed locally before their first real
-# registry publish -- without it, npm bare-symlinks a local dependency and
-# never installs its own `dependencies`. See .claude/rules/tooling.md at
-# the workspace root. Harmless no-op once every @lynkflow/* dependency here
-# is a real registry version.
+# Token as an environment variable, never a literal value in this file.
+# Set LYNKFLOW_NPM_TOKEN once in your shell profile (a classic GitHub PAT --
+# read:packages to install, write:packages to publish -- see publishing.md)
+# and every repo's install/publish picks it up automatically. This line is
+# safe to commit: it's a reference to a variable name, not a secret.
+//npm.pkg.github.com/:_authToken=${LYNKFLOW_NPM_TOKEN}
+
+# Needed while @lynkflow/config (and possibly other @lynkflow/* packages)
+# are consumed locally before their first real registry publish -- without
+# it, npm bare-symlinks a local dependency and never installs its own
+# `dependencies`. See .claude/rules/tooling.md at the workspace root.
+# Harmless no-op once every @lynkflow/* dependency here is a real registry
+# version.
 install-links=true
+
+# --- Registry: LOCAL (Verdaccio) ---
+# To test against a local Verdaccio registry instead of the real one, copy
+# .npmrc.verdaccio.example over this file (or diff the two in) -- see
+# docs/packages-guide.md's "Local registry (Verdaccio)" section. Don't run
+# both at once: only one `@lynkflow:registry` line can be active.
