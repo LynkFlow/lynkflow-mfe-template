@@ -1,0 +1,9 @@
+@lynkflow:registry=https://npm.pkg.github.com
+
+# Needed while @lynkflow/config (and, in this repo, possibly other
+# @lynkflow/* packages) are consumed locally before their first real
+# registry publish -- without it, npm bare-symlinks a local dependency and
+# never installs its own `dependencies`. See .claude/rules/tooling.md at
+# the workspace root. Harmless no-op once every @lynkflow/* dependency here
+# is a real registry version.
+install-links=true
