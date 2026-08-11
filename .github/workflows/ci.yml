@@ -1,0 +1,78 @@
+name: CI
+
+# Hybrid case, unlike lynkflow-ui-kit/lynkflow-types's workflow:
+#   - @lynkflow/config isn't published -> same sibling-checkout trick as the
+#     other workflows (see their header comments).
+#   - @lynkflow/ui-kit IS a real registry dependency here (package.json
+#     declares "^0.1.0", and package-lock.json has it resolved to a real
+#     npm.pkg.github.com tarball URL) -> needs actual registry read auth,
+#     not a sibling checkout.
+#
+# Requires ONE repo secret: CROSS_REPO_PAT -- a classic PAT with BOTH the
+# `repo` scope (to check out the private lynkflow-config sibling) and the
+# `read:packages` scope (to download @lynkflow/ui-kit from GitHub
+# Packages). One PAT with both scopes covers both needs; add it under
+# Settings -> Secrets and variables -> Actions.
+#
+# Known gap this may surface (see .claude/rules/tooling.md's "Known
+# limitations" section): this repo's package-lock.json was last verified
+# against a temporary local substitute for @lynkflow/ui-kit, not a fresh
+# `npm install` against the real published package on a machine with
+# registry credentials. If this workflow's install step fails on the
+# ui-kit resolution specifically (not the lynkflow-config checkout), that
+# pre-existing gap -- not this workflow -- is almost certainly why; refresh
+# the lockfile with `npm install` on a machine with real registry access.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lynkflow-mfe-template
+    steps:
+      - name: Checkout lynkflow-mfe-template
+        uses: actions/checkout@v4
+        with:
+          path: lynkflow-mfe-template
+
+      - name: Checkout lynkflow-config (unpublished sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: LynkFlow/lynkflow-config
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: lynkflow-config
+
+      - name: Use Node.js (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: "lynkflow-mfe-template/.nvmrc"
+          cache: "npm"
+          cache-dependency-path: lynkflow-mfe-template/package-lock.json
+
+      - name: Configure npm (install-links for the config sibling, registry auth for ui-kit)
+        run: |
+          cp .npmrc.example .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.CROSS_REPO_PAT }}" >> .npmrc
+
+      - name: Install
+        run: npm install --install-links
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Production build -- emits dist/remoteEntry.js exposing ./App and
+      # ./Routes. `npm run dev` (webpack-dev-server) is dev-only, not a CI step.
+      - name: Build
+        run: npm run build
