@@ -18,7 +18,7 @@
     "test:coverage:warn": "jest --coverage || echo \"[coverage] Threshold not met -- see report above. Not blocking this commit; please add tests when you can.\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky",
+    "prepare": "husky || exit 0",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "update:lynkflow": "npm install @lynkflow/config@latest @lynkflow/ui-kit@latest"
