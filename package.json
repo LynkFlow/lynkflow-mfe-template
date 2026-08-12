@@ -21,7 +21,8 @@
     "prepare": "husky || exit 0",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "update:lynkflow": "npm install @lynkflow/config@latest @lynkflow/ui-kit@latest"
+    "update:lynkflow": "npm install @lynkflow/config@latest @lynkflow/ui-kit@latest",
+    "install:local": "npm install --@lynkflow:registry=http://localhost:4873"
   },
   "dependencies": {
     "@lynkflow/ui-kit": "^0.1.0",
