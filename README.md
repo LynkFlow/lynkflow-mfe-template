@@ -79,8 +79,14 @@ src/
 │   ├── ErrorFallback/          ⚠ temporary — moves to @lynkflow/ui-kit
 │   ├── PageLoadingSkeleton/    ⚠ temporary — moves to @lynkflow/ui-kit
 │   ├── RouteBoundary/          the route-level error/loading wrapper — see §4
-│   └── QueryBoundary/          the per-query loading/error/empty/success
-│                                wrapper — see §4
+│   ├── QueryBoundary/          the per-query loading/error/empty/success
+│   │                            wrapper — see §4
+│   └── Layouts/                 empty (.gitkeep) — opt-in: if this MFE needs
+│                                shared page chrome (header/sidebar/tabs
+│                                wrapping multiple pages), build it here and
+│                                wrap your route tree with it in Routes.tsx.
+│                                Not wired in by default — most MFEs don't
+│                                need one.
 │
 ├── features/
 │   └── example/                 one folder per domain concept — this one is
@@ -108,18 +114,19 @@ src/
 
 **Decision guide for a new file:**
 
-| You're adding…                                           | It goes…                                                        |
-| -------------------------------------------------------- | --------------------------------------------------------------- |
-| A generic, domain-free UI element (Button, Modal, Table) | `@lynkflow/ui-kit` — **not here**                               |
-| A component that knows about your domain                 | `features/{domain}/components/`                                 |
-| A component reused by several features in this MFE       | `src/components/`                                               |
-| A new screen                                             | `features/{domain}/pages/` + a route in `Routes.tsx`            |
-| A backend call                                           | `api/{domain}Client.ts` (built on `api/httpClient.ts`) + a hook |
-| Rendering a query's loading/error/empty/success states   | `<QueryBoundary query={...}>` — never hand-rolled per page      |
-| Your domain's data shapes (`User`, `Order`, ...)         | `features/{domain}/{domain}.types.ts` — **not** `src/types/`    |
-| A type shared across SEVERAL features, owned by none     | `src/types/` — see §5                                           |
-| User-facing text                                         | `i18n/en.json` **and** `i18n/ar.json` — never inline            |
-| A color / spacing / radius value                         | a token in `@lynkflow/ui-kit` — never hardcoded                 |
+| You're adding…                                                   | It goes…                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| A generic, domain-free UI element (Button, Modal, Table)         | `@lynkflow/ui-kit` — **not here**                               |
+| A component that knows about your domain                         | `features/{domain}/components/`                                 |
+| A component reused by several features in this MFE               | `src/components/`                                               |
+| Shared page chrome (header/sidebar/tabs wrapping multiple pages) | `src/components/Layouts/` — opt-in, not wired in by default     |
+| A new screen                                                     | `features/{domain}/pages/` + a route in `Routes.tsx`            |
+| A backend call                                                   | `api/{domain}Client.ts` (built on `api/httpClient.ts`) + a hook |
+| Rendering a query's loading/error/empty/success states           | `<QueryBoundary query={...}>` — never hand-rolled per page      |
+| Your domain's data shapes (`User`, `Order`, ...)                 | `features/{domain}/{domain}.types.ts` — **not** `src/types/`    |
+| A type shared across SEVERAL features, owned by none             | `src/types/` — see §5                                           |
+| User-facing text                                                 | `i18n/en.json` **and** `i18n/ar.json` — never inline            |
+| A color / spacing / radius value                                 | a token in `@lynkflow/ui-kit` — never hardcoded                 |
 
 ## 4. The reusable concerns: API calls, loading, errors
 
