@@ -18,7 +18,12 @@ import { color, radius, typography } from "@lynkflow/ui-kit";
  * token name on its own, so it's aliased to `radius.md` after the spread.
  */
 export default {
-  content: ["./src/**/*.{ts,tsx}"],
+  content: [
+    "./src/**/*.{ts,tsx}",
+    // FormInput now lives inside src/ (moved back from @lynkflow/forms on
+    // 13 Aug 2026), so it's already covered by the glob above -- no extra
+    // node_modules entry needed.
+  ],
   theme: {
     extend: {
       colors: { ...color },
