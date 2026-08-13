@@ -34,7 +34,11 @@ see §3.
 4. Delete `src/features/{domain}/pages/ExamplePage.tsx` and replace the
    placeholder route in `Routes.tsx` with your first real page -- its
    `components/` and `hooks/` subfolders stay; they're infrastructure every
-   feature needs, not example content. See §3 for where things go.
+   feature needs, not example content. See §3 for where things go. If your
+   first real feature includes a form, also delete
+   `src/forms/ExampleForm/` once you've built your real one -- keep its
+   _pattern_ (react-hook-form + a colocated `{FormName}.schema.ts`, both
+   living in `src/forms/{FormName}/`, see §11), not its content.
 5. `npm install && npm run dev`.
 
 ## 2. Configuration: `.env`
@@ -88,6 +92,30 @@ src/
 │                                Not wired in by default — most MFEs don't
 │                                need one.
 │
+├── hooks/                       empty (.gitkeep) — GENERIC hooks shared
+│                                *within this MFE* only, not tied to
+│                                react-hook-form (those go in forms/, below)
+│
+├── forms/                       ALL form-related code lives here — the
+│   │                            reusable field infrastructure AND every
+│   │                            actual form this MFE has, not split across
+│   │                            features/. Flat, like i18n/ and api/ below
+│   │                            (no components/hooks split -- not earned
+│   │                            at this size). See §11.
+│   ├── FormInput/                the react-hook-form call-site abstraction —
+│   │   ├── FormInput.tsx         renders @lynkflow/ui-kit's real Input
+│   │   ├── useFormField.ts       the react-hook-form adapter -- PRIVATE to
+│   │   │                          FormInput (not in index.ts); nothing else
+│   │   │                          calls it, so it's nested rather than a
+│   │   │                          top-level peer, see §11
+│   │   └── index.ts              only exports FormInput/FormInputProps --
+│   │                              useFormField is deliberately not exported
+│   └── ExampleForm/               ⚠ scaffolding — a worked react-hook-form +
+│       ├── ExampleForm.tsx        zod example; delete once you build a real
+│       ├── ExampleForm.schema.ts  form, keep the PATTERN (schema colocated
+│       │                          with its own form, §11)
+│       └── index.ts
+│
 ├── features/
 │   └── example/                 one folder per domain concept — this one is
 │                                 scaffolding for the placeholder domain;
@@ -96,8 +124,9 @@ src/
 │       │   └── ExamplePage.tsx  ⚠ scaffolding — delete once you add a real
 │       │                        page, but its LOCATION is the real pattern
 │       │                        (a worked example — see its own docblock)
-│       ├── components/         empty (.gitkeep) — feature-specific
-│       │                        components (+ tests) go here
+│       ├── components/          empty (.gitkeep) — a feature's OWN
+│       │                        components (not forms — those live in
+│       │                        forms/, see above)
 │       ├── hooks/               empty (.gitkeep) — TanStack Query hooks go
 │       │                        here (see §4)
 │       └── example.types.ts    doesn't exist yet — types shared across this
@@ -114,19 +143,20 @@ src/
 
 **Decision guide for a new file:**
 
-| You're adding…                                                   | It goes…                                                        |
-| ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| A generic, domain-free UI element (Button, Modal, Table)         | `@lynkflow/ui-kit` — **not here**                               |
-| A component that knows about your domain                         | `features/{domain}/components/`                                 |
-| A component reused by several features in this MFE               | `src/components/`                                               |
-| Shared page chrome (header/sidebar/tabs wrapping multiple pages) | `src/components/Layouts/` — opt-in, not wired in by default     |
-| A new screen                                                     | `features/{domain}/pages/` + a route in `Routes.tsx`            |
-| A backend call                                                   | `api/{domain}Client.ts` (built on `api/httpClient.ts`) + a hook |
-| Rendering a query's loading/error/empty/success states           | `<QueryBoundary query={...}>` — never hand-rolled per page      |
-| Your domain's data shapes (`User`, `Order`, ...)                 | `features/{domain}/{domain}.types.ts` — **not** `src/types/`    |
-| A type shared across SEVERAL features, owned by none             | `src/types/` — see §5                                           |
-| User-facing text                                                 | `i18n/en.json` **and** `i18n/ar.json` — never inline            |
-| A color / spacing / radius value                                 | a token in `@lynkflow/ui-kit` — never hardcoded                 |
+| You're adding…                                                   | It goes…                                                                                                                                |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| A generic, domain-free UI element (Button, Modal, Table)         | `@lynkflow/ui-kit` — **not here**                                                                                                       |
+| A component that knows about your domain                         | `features/{domain}/components/`                                                                                                         |
+| A component reused by several features in this MFE               | `src/components/`                                                                                                                       |
+| Shared page chrome (header/sidebar/tabs wrapping multiple pages) | `src/components/Layouts/` — opt-in, not wired in by default                                                                             |
+| A new screen                                                     | `features/{domain}/pages/` + a route in `Routes.tsx`                                                                                    |
+| A backend call                                                   | `api/{domain}Client.ts` (built on `api/httpClient.ts`) + a hook                                                                         |
+| Rendering a query's loading/error/empty/success states           | `<QueryBoundary query={...}>` — never hand-rolled per page                                                                              |
+| Your domain's data shapes (`User`, `Order`, ...)                 | `features/{domain}/{domain}.types.ts` — **not** `src/types/`                                                                            |
+| A type shared across SEVERAL features, owned by none             | `src/types/` — see §5                                                                                                                   |
+| User-facing text                                                 | `i18n/en.json` **and** `i18n/ar.json` — never inline                                                                                    |
+| A color / spacing / radius value                                 | a token in `@lynkflow/ui-kit` — never hardcoded                                                                                         |
+| A form that needs validation                                     | react-hook-form + a colocated `{FormName}.schema.ts`, fields as `<FormInput>` (`src/forms/FormInput`) inside `<FormProvider>` — see §11 |
 
 ## 4. The reusable concerns: API calls, loading, errors
 
@@ -295,6 +325,22 @@ speculatively.
 | A component's own prop types                            | The component's own file, next to it                                                |
 | Types that cross a service boundary (API DTOs)          | `@lynkflow/types` — and only if they're genuinely a contract, see `architecture.md` |
 
+**`@lynkflow/types` is a real dependency of this template (`package.json`),
+but it currently has nothing in it to import.** This is a deliberate,
+flagged deviation from the platform's general rule (`architecture.md`):
+types only get added to `@lynkflow/types` once a real `*-svc` defines a
+real contract, and none exists yet. Wiring the _dependency_ into the
+template now — ahead of any content — was an explicit developer decision
+(12 Aug 2026), on the reasoning that every domain MFE will eventually need
+it and the plumbing costs nothing to have in place early, the same
+rationale `forms.md` gives for baking in `react-hook-form`/`zod` ahead of a
+real form. It's resolved via a local `file:../lynkflow-types` link (that
+package isn't published yet either — see `.claude/rules/publishing.md`'s
+publishing queue), and `update:lynkflow` deliberately does **not** include
+it: that script bumps to the _latest published_ version, and there isn't
+one. Don't add speculative DTOs here just because the dependency exists —
+the emptiness is still intentional; only the wiring is early.
+
 Don't delete this folder when specializing the template for a real domain —
 it's infrastructure every MFE eventually needs, not scaffolding like
 `ExamplePage.tsx`. See `src/types/README.md` for the same guidance colocated
@@ -444,3 +490,97 @@ _default_ comes from. As covered in §4, a page or feature is always free to
 pass its own loading skeleton or error component via
 `loadingFallback`/`fallback` when the shared default doesn't fit — that stays
 true whether the default is this local component or the future ui-kit one.
+
+## 11. Form validation: react-hook-form + zod, with zero manual field wiring
+
+`react-hook-form` + `zod` (via `@hookform/resolvers`'s `zodResolver`) is the
+platform's standardized form-validation pairing — see the workspace root's
+`.claude/rules/forms.md` for the full decision and why. This template ships a
+real, tested worked example, and the reusable field-wiring half lives right
+here in the template, not in a separate package:
+
+```
+forms/                                every form-related file lives here —
+│                                      both the reusable field infrastructure
+│                                      AND every actual form this MFE has,
+│                                      flat -- no components/hooks split
+├── FormInput/                        template infrastructure — every field
+│   ├── FormInput.tsx                 in this MFE goes through this
+│   ├── useFormField.ts               PRIVATE to FormInput -- nothing else
+│   │                                  calls it, so it's nested here rather
+│   │                                  than a top-level peer (promote it back
+│   │                                  out only once a second consumer, e.g.
+│   │                                  a future FormCodeDigit, needs it too)
+│   └── index.ts                      exports only FormInput/FormInputProps
+└── ExampleForm/                      (this template's own scaffolding)
+    ├── ExampleForm.tsx               the form itself
+    └── ExampleForm.schema.ts         the zod schema + its inferred value
+                                       type -- colocated with ITS form (see
+                                       point 1 below), just no longer
+                                       colocated with the rest of the
+                                       "example" feature
+```
+
+`forms/` is a dedicated top-level folder (same pattern as `i18n/` and `api/`
+— and, like them, flat rather than split into `components/`/`hooks/`
+buckets, which isn't earned by two form folders) rather than splitting form
+code across the generic `components/`/`hooks/` buckets and per-feature
+folders — every form, and the infrastructure they share, lives in one
+place. Each real form still gets its own `forms/{FormName}/` folder holding
+just that form and its own schema (the colocation rule in point 1 below is
+about a schema staying next to its _own_ form, not about which top-level
+directory the pair lives in) — so this doesn't reintroduce the shared
+`schemas/` folder `forms.md` warns against, it just centralizes where forms
+as a whole live instead of splitting them across `features/`.
+
+`FormInput` renders `@lynkflow/ui-kit`'s real `Input` component — this
+template already depends on the ui-kit directly, so there was no dependency
+boundary to protect by putting this in its own package. (An earlier version
+briefly lived in a separate `@lynkflow/forms` package for exactly a day —
+see `forms.md`'s historical note if you're curious why that got reverted.)
+Because `FormInput` is template code, a fix or improvement here applies the
+same way any other template change does: made once in `lynkflow-mfe-template`,
+then manually reapplied to any already-scaffolded MFE that needs it — same as
+`ErrorFallback`/`PageLoadingSkeleton` above, not the `update:lynkflow`
+one-command story a real `@lynkflow/*` package gets.
+
+The pattern, in four pieces:
+
+1. **The schema is colocated with its form**, named `{FormName}.schema.ts` —
+   not a shared `schemas/` folder. It's the single source of truth for both
+   the validation rules (with message copy attached directly:
+   `z.string().email({ message: "..." })`) and the form's TS value type
+   (`z.infer<typeof schema>` — never hand-written separately, or the two
+   will drift).
+2. **`react-hook-form`'s `useForm` takes the schema via `zodResolver`**, and
+   the whole `form` object is handed to `<FormProvider>` wrapping the
+   `<form>` — that's the only place `useForm` gets called.
+3. **Each field is a single `<FormInput name="..." label="..." />`** — no
+   `register()`, no reading `formState.errors` at the call site, no
+   hand-written `aria-invalid`/`aria-describedby`/error-`<p>` markup (`Input`
+   itself already owns all of that):
+
+   ```tsx
+   import { FormInput } from "../FormInput";
+
+   const form = useForm<ExampleFormValues>({
+     resolver: zodResolver(exampleFormSchema),
+   });
+
+   <FormProvider {...form}>
+     <FormInput<ExampleFormValues> name="email" label="Email" isRequired />
+   </FormProvider>;
+   ```
+
+4. **The same slot also receives server-side field errors** via
+   react-hook-form's `setError("fieldName", { message })`, once a `-svc`
+   call rejects — `FormInput` reads the same `formState.errors` `setError`
+   writes to, so nothing extra is needed at the call site. See
+   `forms.md`'s "Server-side validation errors land in the same slot"
+   section for why that matters.
+
+Delete `forms/ExampleForm/` once you build your first real form (build the
+real one in its own `forms/{FormName}/` folder), same as `ExamplePage.tsx`
+— keep the pattern, not the content. `forms/FormInput/` (including its
+private `useFormField.ts`) stays — it's infrastructure every form-using
+feature needs, not example content.

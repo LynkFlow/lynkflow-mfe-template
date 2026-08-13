@@ -18,7 +18,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { dependencies } = require("./package.json");
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const { ModuleFederationPlugin } = webpack.container;
 
 // Everything that needs to be configured centrally for this MFE (its MF
@@ -72,6 +73,22 @@ export default (_env, argv) => {
     entry: "./src/index.ts",
     mode: argv.mode ?? "development",
     devtool: isProduction ? "source-map" : "eval-source-map",
+    // Persistent filesystem cache: webpack's default in dev mode is an
+    // in-memory cache, which is thrown away the moment the process exits --
+    // so every single `npm run dev` was doing a full cold rebuild of the
+    // whole dependency graph (react-dom, react-router-dom, etc.), every
+    // time. Caching to disk means only what actually changed since the last
+    // run gets recompiled -- the first start after a fresh `npm install` is
+    // still a full build (nothing to cache yet), but every start after that
+    // should be dramatically faster. `buildDependencies.config` tells
+    // webpack to invalidate the whole cache if this file itself changes, so
+    // a config edit can't silently serve a stale cached build.
+    cache: {
+      type: "filesystem",
+      buildDependencies: {
+        config: [__filename],
+      },
+    },
     output: {
       // publicPath "auto" lets the remote be served from any host/path without
       // rebuilding -- required for Module Federation to resolve its own chunks.
