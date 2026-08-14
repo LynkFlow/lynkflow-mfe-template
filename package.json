@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
-    "@lynkflow/types": "^0.0.1",
+    "@lynkflow/types": "^0.1.0",
     "@lynkflow/ui-kit": "^0.1.4",
     "@tanstack/react-query": "^5.90.5",
     "i18next": "^25.6.2",
