@@ -1,4 +1,0 @@
-# This file only keeps this folder in git until you add a real hook.
-# For a GENERIC hook shared across features but not tied to react-hook-form
-# (form-specific hooks live in src/forms/ instead, see README.md §11) --
-# e.g. src/hooks/useDebounce.ts -- see README.md §3 for where things go.
