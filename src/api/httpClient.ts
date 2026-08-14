@@ -12,8 +12,11 @@
  * domain-specific type or endpoint, that logic belongs in this MFE's own
  * `api/{domain}Client.ts`, not here. A backend whose success responses come
  * wrapped in an envelope (e.g. `{ success, data, message }`) supplies its own
- * `unwrap` function via `CreateApiClientOptions` -- that's still generic
- * plumbing, not a domain-specific type.
+ * `unwrap` function via `CreateApiClientOptions`, and one whose error
+ * responses don't already match `@lynkflow/types`' `ApiError` shape (e.g. a
+ * nested `{ error: { code, message } }` envelope) supplies `parseError` the
+ * same way -- both are still generic extension points, not domain-specific
+ * types.
  *
  * Usage (in a real MFE, once you've replaced the "example" placeholder):
  *
@@ -62,6 +65,16 @@ export interface CreateApiClientOptions {
    * Most domains return the resource directly and don't need this.
    */
   unwrap?: (body: unknown) => unknown;
+
+  /**
+   * Pulls `ApiError`'s fields out of an error response body that isn't
+   * already flat (e.g. a backend that nests it as `{ error: { code,
+   * message, data } }`). Return `undefined`/omit a field to fall back to
+   * this client's own defaults (`UNKNOWN_ERROR`, the generic status
+   * message). Most domains return the flat shape directly and don't need
+   * this.
+   */
+  parseError?: (body: unknown) => Partial<ApiError> | undefined;
 }
 
 /**
@@ -69,8 +82,10 @@ export interface CreateApiClientOptions {
  *
  * Services are expected to return a consistent error envelope
  * (`{ code, message, fieldErrors?, details? }`, matching `@lynkflow/types`'s
- * `ApiError`); this falls back gracefully when they don't (network errors,
- * proxies, HTML error pages) rather than throwing an unhelpful parse error.
+ * `ApiError`) -- or, if not, a `parseError` that maps their own shape onto
+ * it. Either way this falls back gracefully when parsing turns up nothing
+ * usable (network errors, proxies, HTML error pages) rather than throwing an
+ * unhelpful parse error.
  */
 export function createApiClient(baseUrl: string, options: CreateApiClientOptions = {}): ApiClient {
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -80,7 +95,8 @@ export function createApiClient(baseUrl: string, options: CreateApiClientOptions
     });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as Partial<ApiError>;
+      const rawBody: unknown = await response.json().catch(() => undefined);
+      const body = (options.parseError ? options.parseError(rawBody) : (rawBody as Partial<ApiError> | undefined)) ?? {};
       throw new ApiRequestError({
         code: body.code ?? "UNKNOWN_ERROR",
         status: response.status,

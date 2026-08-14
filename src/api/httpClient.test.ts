@@ -103,4 +103,21 @@ describe("createApiClient", () => {
 
     await expect(client.get("/1")).resolves.toEqual({ id: "1" });
   });
+
+  it("parses a nested error envelope when the domain supplies parseError", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: "AUTH_INVALID_CREDENTIALS", message: "Bad credentials." } }),
+    });
+    const client = createApiClient("/api/widgets", {
+      parseError: (body) => (body as { error?: Partial<import("@lynkflow/types").ApiError> }).error,
+    });
+
+    await expect(client.get("/1")).rejects.toMatchObject({
+      code: "AUTH_INVALID_CREDENTIALS",
+      status: 401,
+      message: "Bad credentials.",
+    });
+  });
 });
