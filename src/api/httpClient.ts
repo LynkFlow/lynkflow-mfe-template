@@ -10,7 +10,13 @@
  *
  * This file must stay domain-agnostic. The moment it grows a single
  * domain-specific type or endpoint, that logic belongs in this MFE's own
- * `api/{domain}Client.ts`, not here.
+ * `api/{domain}Client.ts`, not here. A backend whose success responses come
+ * wrapped in an envelope (e.g. `{ success, data, message }`) supplies its own
+ * `unwrap` function via `CreateApiClientOptions`, and one whose error
+ * responses don't already match `@lynkflow/types`' `ApiError` shape (e.g. a
+ * nested `{ error: { code, message } }` envelope) supplies `parseError` the
+ * same way -- both are still generic extension points, not domain-specific
+ * types.
  *
  * Usage (in a real MFE, once you've replaced the "example" placeholder):
  *
@@ -25,30 +31,22 @@
  *     getById: (id: string) => apiClient.get<User>(`/${encodeURIComponent(id)}`),
  *   };
  */
-
-/**
- * Normalized error shape every call site can rely on.
- *
- * `fieldErrors` is keyed by field name because business-domain.md requires
- * validation messages to identify the offending field, not just report a flat
- * message -- the UI can't do that without a field key to attach the message to.
- */
-export interface ApiError {
-  status: number;
-  message: string;
-  fieldErrors?: Record<string, string>;
-}
+import type { ApiError } from "@lynkflow/types";
 
 /** Thrown by every request this client makes. Safe to `instanceof` check. */
 export class ApiRequestError extends Error implements ApiError {
+  code: string;
   status: number;
   fieldErrors?: Record<string, string>;
+  details?: string[];
 
   constructor(error: ApiError) {
     super(error.message);
     this.name = "ApiRequestError";
+    this.code = error.code;
     this.status = error.status;
     if (error.fieldErrors) this.fieldErrors = error.fieldErrors;
+    if (error.details) this.details = error.details;
   }
 }
 
@@ -60,32 +58,67 @@ export interface ApiClient {
   delete<T>(path: string, init?: RequestInit): Promise<T>;
 }
 
+export interface CreateApiClientOptions {
+  /**
+   * Pulls the real payload out of a success response for a backend that
+   * wraps it in its own envelope (e.g. `{ success, data, message }`).
+   * Most domains return the resource directly and don't need this.
+   */
+  unwrap?: (body: unknown) => unknown;
+
+  /**
+   * Pulls `ApiError`'s fields out of an error response body that isn't
+   * already flat (e.g. a backend that nests it as `{ error: { code,
+   * message, data } }`). Return `undefined`/omit a field to fall back to
+   * this client's own defaults (`UNKNOWN_ERROR`, the generic status
+   * message). Most domains return the flat shape directly and don't need
+   * this.
+   */
+  parseError?: (body: unknown) => Partial<ApiError> | undefined;
+
+  /**
+   * Passed straight through to every `fetch()` call as `RequestInit.credentials`
+   * (e.g. `"include"` for a domain whose backend relies on a session cookie
+   * across origins). Omitted by default -- most domains authenticate via a
+   * bearer token attached per-call `init`, not cookies, and browsers already
+   * default to `"same-origin"` on their own.
+   */
+  credentials?: RequestCredentials;
+}
+
 /**
  * Creates an API client scoped to one domain's base URL.
  *
  * Services are expected to return a consistent error envelope
- * (`{ message, fieldErrors? }`); this falls back gracefully when they don't
- * (network errors, proxies, HTML error pages) rather than throwing an
+ * (`{ code, message, fieldErrors?, details? }`, matching `@lynkflow/types`'s
+ * `ApiError`) -- or, if not, a `parseError` that maps their own shape onto
+ * it. Either way this falls back gracefully when parsing turns up nothing
+ * usable (network errors, proxies, HTML error pages) rather than throwing an
  * unhelpful parse error.
  */
-export function createApiClient(baseUrl: string): ApiClient {
+export function createApiClient(baseUrl: string, options: CreateApiClientOptions = {}): ApiClient {
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
       headers: { "Content-Type": "application/json", ...init?.headers },
+      ...(options.credentials ? { credentials: options.credentials } : {}),
       ...init,
     });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as Partial<ApiError>;
+      const rawBody: unknown = await response.json().catch(() => undefined);
+      const body = (options.parseError ? options.parseError(rawBody) : (rawBody as Partial<ApiError> | undefined)) ?? {};
       throw new ApiRequestError({
+        code: body.code ?? "UNKNOWN_ERROR",
         status: response.status,
         message: body.message ?? `Request failed with status ${response.status}`,
         ...(body.fieldErrors ? { fieldErrors: body.fieldErrors } : {}),
+        ...(body.details ? { details: body.details } : {}),
       });
     }
 
     if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+    const json: unknown = await response.json();
+    return (options.unwrap ? options.unwrap(json) : json) as T;
   }
 
   function withBody<T>(
