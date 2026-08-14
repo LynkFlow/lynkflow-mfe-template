@@ -75,6 +75,15 @@ export interface CreateApiClientOptions {
    * this.
    */
   parseError?: (body: unknown) => Partial<ApiError> | undefined;
+
+  /**
+   * Passed straight through to every `fetch()` call as `RequestInit.credentials`
+   * (e.g. `"include"` for a domain whose backend relies on a session cookie
+   * across origins). Omitted by default -- most domains authenticate via a
+   * bearer token attached per-call `init`, not cookies, and browsers already
+   * default to `"same-origin"` on their own.
+   */
+  credentials?: RequestCredentials;
 }
 
 /**
@@ -91,6 +100,7 @@ export function createApiClient(baseUrl: string, options: CreateApiClientOptions
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
       headers: { "Content-Type": "application/json", ...init?.headers },
+      ...(options.credentials ? { credentials: options.credentials } : {}),
       ...init,
     });
 

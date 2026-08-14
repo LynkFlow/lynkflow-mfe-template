@@ -120,4 +120,16 @@ describe("createApiClient", () => {
       message: "Bad credentials.",
     });
   });
+
+  it("passes the configured credentials mode through to fetch", async () => {
+    mockFetchOnce({ json: async () => ({ id: "1" }) });
+    const client = createApiClient("/api/widgets", { credentials: "include" });
+
+    await client.get("/1");
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/widgets/1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
 });
