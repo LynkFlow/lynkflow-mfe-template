@@ -62,6 +62,7 @@ describe("createApiClient", () => {
       ok: false,
       status: 422,
       json: async () => ({
+        code: "VALIDATION_ERROR",
         message: "Validation failed.",
         fieldErrors: { email: "Email is required." },
       }),
@@ -69,13 +70,14 @@ describe("createApiClient", () => {
     const client = createApiClient("/api/widgets");
 
     await expect(client.get("/1")).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
       status: 422,
       message: "Validation failed.",
       fieldErrors: { email: "Email is required." },
     });
   });
 
-  it("falls back to a generic message when the error body isn't JSON", async () => {
+  it("falls back to a generic code and message when the error body isn't JSON", async () => {
     mockFetchOnce({
       ok: false,
       status: 500,
@@ -87,8 +89,47 @@ describe("createApiClient", () => {
 
     await expect(client.get("/1")).rejects.toBeInstanceOf(ApiRequestError);
     await expect(client.get("/1")).rejects.toMatchObject({
+      code: "UNKNOWN_ERROR",
       status: 500,
       message: "Request failed with status 500",
     });
+  });
+
+  it("unwraps a response envelope when the domain supplies one", async () => {
+    mockFetchOnce({ json: async () => ({ success: true, data: { id: "1" } }) });
+    const client = createApiClient("/api/widgets", {
+      unwrap: (body) => (body as { data: unknown }).data,
+    });
+
+    await expect(client.get("/1")).resolves.toEqual({ id: "1" });
+  });
+
+  it("parses a nested error envelope when the domain supplies parseError", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: "AUTH_INVALID_CREDENTIALS", message: "Bad credentials." } }),
+    });
+    const client = createApiClient("/api/widgets", {
+      parseError: (body) => (body as { error?: Partial<import("@lynkflow/types").ApiError> }).error,
+    });
+
+    await expect(client.get("/1")).rejects.toMatchObject({
+      code: "AUTH_INVALID_CREDENTIALS",
+      status: 401,
+      message: "Bad credentials.",
+    });
+  });
+
+  it("passes the configured credentials mode through to fetch", async () => {
+    mockFetchOnce({ json: async () => ({ id: "1" }) });
+    const client = createApiClient("/api/widgets", { credentials: "include" });
+
+    await client.get("/1");
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/widgets/1",
+      expect.objectContaining({ credentials: "include" }),
+    );
   });
 });
